@@ -1,0 +1,23 @@
+name: blog-rag-agent
+
+services:
+  db:
+    # Railway pgvector 템플릿과 같은 이미지
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      # PG18 이미지부터 데이터가 /var/lib/postgresql/<버전>/ 아래에 생기므로 상위 경로에 마운트
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

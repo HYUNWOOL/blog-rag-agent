@@ -1,0 +1,31 @@
+[project]
+name = "blog-rag-agent"
+version = "0.1.0"
+description = "블로그 글을 근거로 답하는 RAG 챗봇 학습 프로젝트"
+authors = [
+    { name = "현우 이", email = "26301490+HYUNWOOL@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.20.0,<2.0.0",
+    "anthropic>=1.15.0,<2.0.0",
+    "fastapi>=0.146.0,<0.147.0",
+    "langchain>=1.4,<2",
+    "langchain-anthropic>=1.7.6,<2.0.0",
+    "langgraph>=1.2,<2",
+    "langgraph-checkpoint-postgres>=3.2.0,<4.0.0",
+    "pgvector>=0.5.1,<0.6.0",
+    "psycopg[binary]>=3,<4",
+    "python-dotenv>=1.2.4,<2.0.0",
+    "uvicorn>=0.54.0,<0.55.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1,<10.0.0",
+    "ruff>=0.17.1,<0.18.0",
+]

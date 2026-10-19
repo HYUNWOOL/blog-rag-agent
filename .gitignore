@@ -1,0 +1,6 @@
+.env
+.venv/
+__pycache__/
+# 수집한 원문은 커밋하지 않는다. 폴더 자리는 .gitkeep으로 유지
+BE/data/posts/*
+!BE/data/posts/.gitkeep
