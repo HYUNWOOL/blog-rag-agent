@@ -19,6 +19,7 @@
 ## 코드 규칙
 - pyproject의 버전 상한을 지킨다. 올려야 하면 먼저 묻는다.
 - 시크릿은 .env에만 두고 커밋하지 않는다. 로그에도 남기지 않는다.
+- .env 내용을 읽거나 출력하지 않는다. 키가 필요하면 config.py 검사 결과만 본다
 - 비용 계산은 Decimal로 한다.
 - LLM을 부르는 실험에는 recursion_limit이나 step 상한을 반드시 건다. 기본 recursion_limit은 1000이다.
 - 내가 네 실수를 지적하면, 무엇이 틀렸고 어떤 규칙이나 테스트로 막을지 notes/harness-log.md에 넣을 한 줄을 제안한다.
