@@ -15,7 +15,6 @@
 | 비교 | 질문 10개(쉬움 3·중간 4·어려움 3)로 세 버전 비교 | `experiments/week1/questions.txt`, `compare.py`, `compare_answers.md`, README 표 |
 | 흐름 | 적재·검색·세 버전·메시지 증가 방식 | `notes/flow.md` |
 | 회고 | AI 실수 3건과 막을 방법 | `notes/harness-log.md` |
-| 블로그 | 초심자용 1주차 글 초안 | `notes/blog-week1.md` |
 
 ## 정한 것
 
