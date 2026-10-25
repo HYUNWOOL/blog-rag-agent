@@ -30,6 +30,19 @@
 - 주요 결정과 이유:
 - 한계와 다음 단계:
 
+## 세 버전 비교 (compare.py)
+
+`BE/experiments/week1/questions.txt`(쉬움 3, 중간 4, 어려움 3)를 2026-10-25에 세 버전으로 돌린 결과. 모델 `claude-haiku-5-5`, effort low, search k=5. 재현: `uv run python experiments/week1/compare.py`. 답변 원문은 `BE/experiments/week1/compare_answers.md`.
+
+| 버전 | 평균 LLM 호출 | 평균 토큰(입력+출력) | 평균 지연(초) | 코드 줄 수 | 실패 |
+| --- | --- | --- | --- | --- | --- |
+| v0 workflow | 1.0 | 3745 | 2.7 | 25 | 0 |
+| raw_loop | 2.1 | 6551 | 4.4 | 48 | 0 |
+| langgraph | 2.1 | 6962 | 5.0 | 45 | 0 |
+
+- 코드 줄 수는 각 버전의 핵심 함수만 센 값이다(공통 프롬프트·툴 `agent_tools.py`는 제외).
+- 에이전트 두 버전은 대부분 질문에서 검색 1번 + 답 1번(호출 2회)이었고, 여러 글을 이어야 하는 9번(튀르키예 이동 순서)에서만 검색을 더 해 호출 3회가 됐다. v0는 그 질문에 일부 구간만 답했다.
+
 ## 검색 실행 계획 (EXPLAIN ANALYZE)
 
 `search()`(`BE/src/blog_rag_agent/retrieval/search.py`)의 SQL을 2026-10-25에 실행한 결과. 재현: `uv run python experiments/week1/explain_search.py`. 질문 "스위스에서 기차 탄 이야기", chunks 261행, 1024차원 벡터는 `<q>`로 줄였다.
