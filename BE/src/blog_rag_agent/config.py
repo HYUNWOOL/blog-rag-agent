@@ -26,6 +26,7 @@ class Settings:
     # DATABASE_URL에도 비밀번호가 들어 있으므로 같이 숨긴다.
     database_url: str = field(repr=False)
     embedding_provider: str
+    embedding_model: str
     embedding_api_key: str | None = field(repr=False)
     langsmith_api_key: str | None = field(repr=False)
     langsmith_tracing: bool
@@ -75,6 +76,8 @@ def load_settings(env_file: Path | None = DEFAULT_ENV_FILE) -> Settings:
         anthropic_api_key=anthropic_api_key,
         database_url=_require("DATABASE_URL"),
         embedding_provider=embedding_provider,
+        # 1주차 결정: 로컬 bge-m3(1024차원). 바꾸면 chunks.embedding 차원도 마이그레이션해야 한다.
+        embedding_model=os.environ.get("EMBEDDING_MODEL", "BAAI/bge-m3").strip(),
         embedding_api_key=embedding_api_key,
         langsmith_api_key=_optional("LANGSMITH_API_KEY"),
         langsmith_tracing=os.environ.get("LANGSMITH_TRACING", "false").strip().lower()

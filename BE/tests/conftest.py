@@ -58,7 +58,8 @@ def test_db_url() -> str:
 @pytest.fixture
 def db(test_db_url):
     """테스트마다 public 테이블을 비운 rag_test 연결. alembic_version은 남긴다."""
-    with psycopg.connect(test_db_url) as conn:
+    # 적재 코드와 같은 autocommit 연결. conn.transaction()이 진짜 트랜잭션이 된다.
+    with psycopg.connect(test_db_url, autocommit=True) as conn:
         # 실수로 개발 DB를 비우지 않도록 대상 DB 이름을 확인한다.
         assert conn.info.dbname == TEST_DB
         register_vector(conn)
@@ -75,5 +76,4 @@ def db(test_db_url):
                     sql.SQL(", ").join(map(sql.Identifier, tables))
                 )
             )
-        conn.commit()
         yield conn
