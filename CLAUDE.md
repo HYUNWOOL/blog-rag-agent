@@ -16,6 +16,7 @@
 ## DB 규칙
 - DB 접근은 psycopg로 SQL을 직접 쓴다. LangChain 벡터스토어 래퍼는 쓰지 않는다.
 - 스키마 변경은 Alembic 마이그레이션으로만 한다. DDL을 손으로 실행하지 않는다.
+- 예외: LangGraph 체크포인터 테이블은 라이브러리의 `setup()`이 관리한다(`make checkpoints`).
 - 적재는 몇 번을 다시 돌려도 결과가 같아야 한다.
 
 ## 코드 규칙

@@ -34,6 +34,20 @@
 - 어떻게 확인했나: 적재 후 청크 길이 분포를 SQL로 확인하고, `experiments/week1/search_questions.py`로 questions.txt의 top-3를 봤다. 청킹 규칙은 `tests/test_chunking.py`(소제목 분리, alt만 남김, 짧은 섹션 합치기, 긴 코드 블록 보존)로 고정했다.
 - 결과(숫자): 청크 261개, 평균 497자(최소 233, 최대 1230), 도입부 청크 33개(글마다 1개). 블로그에 답이 있는 단일 글 질문 8개(1~8번)에서 1위가 정답 글 8/8, 정답 소제목 7/8(6번은 같은 글 도입부가 1위, 정답 소제목 "첫날 밤"이 2위). 정답 1위 청크의 거리 0.249~0.462.
 
+## 2주차 결정 (2026-10-31, 근거: notes/week2-decision-points.md, 모두 추천안)
+- State: 명시 필드(question, query, chunks, attempts, verdict, answer, llm_calls).
+- 충분성 판단: LLM 판정(구조화 출력 {sufficient, missing}). 거리 임계값은 쓰지 않음.
+- 재검색: 상한 2번(총 검색 3번), 도달하면 insufficient 노드에서 안내. recursion_limit은 15로 올림.
+- rewrite_query: 재검색 때만 돈다. 첫 검색은 질문 그대로.
+- 질문 로그: question_logs(PK (thread_id, turn), question, status, answer, attempts, llm_calls, source_post_ids, created_at, updated_at), (thread_id, turn) 기준 멱등 upsert. 두 턴 대화를 위해 "스레드 하나에 질문 하나"를 바꿨다.
+- 후속 질문 검색: 대화 기록이 있으면 rewrite_query가 먼저 독립 검색어를 만든다. 첫 턴은 질문 그대로.
+- 근거 문서 id: answer 구조화 출력으로 모델이 고른 글만 남기고, 코드에서 이번 턴에 검색된 id로 거른다.
+- 체크포인터 테이블: Alembic 규칙의 예외로 두고 전용 스크립트로 setup() 실행.
+- 노드: async + AsyncPostgresSaver(노드 timeout을 쓰기 위해).
+- 판정 기준: A 완화(핵심에 답할 수 있으면 세부가 빠져도 충분). 질문 6개 재실행 결과는 그대로였다. 튀르키예 순서 질문은 여전히 insufficient이고, 재검색어가 요약 글을 찾느라 안탈리아 구간 청크가 없었다.
+- 재검색 프롬프트: 장소·구간 하나만 찾도록 수정. 튀르키예 질문이 3번 모두 answer로 갔지만 5개 도시 중 4, 4, 3개만 답했고, 한 번은 카파도키아 방문 기록이 없다고 틀리게 답했다. 재검색어가 이미 찾은 장소를 다시 찾는 문제가 남았다.
+- 멀티홉 답변 품질: 여기서 튜닝을 멈추고 3주차 평가로 넘긴다. 질문 하나에 프롬프트를 더 맞추지 않고, 멀티홉 질문을 늘린 평가셋으로 판정 기준과 재검색(찾은 글 제목 전달 등)을 다시 정한다.
+
 ## 판단: (질문 한 줄)
 - 상황:
 - 선택지: A / B / C

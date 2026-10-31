@@ -29,6 +29,13 @@ GET_POST_DESC = (
 )
 
 
+def format_context(chunks: list[dict]) -> str:
+    # 검색 결과를 출처와 함께 붙여 넣는다. 모델은 이 안에서만 답해야 한다(시스템 프롬프트).
+    return "\n\n".join(
+        f"[{i}] {c['title']} ({c['url']})\n{c['text']}" for i, c in enumerate(chunks, 1)
+    )
+
+
 def run_search_posts(conn: psycopg.Connection, embedder, query: str) -> str:
     hits = search(conn, embedder, query, SEARCH_K)
     # 모델에 보내는 툴 결과는 문자열이다. 거리는 소수 3자리면 순위를 읽기에 충분하다.

@@ -4,7 +4,42 @@
 - 성공 지표:
 - 아키텍처: (그림)
 
-  LangGraph 에이전트(`BE/src/blog_rag_agent/graph/research.py`), `python -m blog_rag_agent.graph.research --mermaid` 출력:
+  Agentic RAG 그래프(`BE/src/blog_rag_agent/graph/agentic.py`), `draw_mermaid()` 출력:
+
+  ```mermaid
+  ---
+  config:
+    flowchart:
+      curve: linear
+  ---
+  graph TD;
+  	__start__(<p>__start__</p>)
+  	begin_turn(begin_turn)
+  	__error_handler__retrieve(__error_handler__retrieve)
+  	retrieve(retrieve)
+  	grade(grade)
+  	rewrite_query(rewrite_query)
+  	answer(answer)
+  	insufficient(insufficient)
+  	log_question(log_question)
+  	__end__(<p>__end__</p>)
+  	__start__ --> begin_turn;
+  	answer --> log_question;
+  	begin_turn -.-> retrieve;
+  	begin_turn -.-> rewrite_query;
+  	grade -.-> answer;
+  	grade -.-> insufficient;
+  	grade -.-> rewrite_query;
+  	insufficient --> log_question;
+  	retrieve --> grade;
+  	rewrite_query --> retrieve;
+  	log_question --> __end__;
+  	classDef default fill:#f2f0ff,line-height:1.2
+  	classDef first fill-opacity:0
+  	classDef last fill:#bfb6fc
+  ```
+
+  1주차 LangGraph 에이전트(`BE/src/blog_rag_agent/graph/research.py`), `python -m blog_rag_agent.graph.research --mermaid` 출력:
 
   ```mermaid
   ---
@@ -42,6 +77,116 @@
 
 - 코드 줄 수는 각 버전의 핵심 함수만 센 값이다(공통 프롬프트·툴 `agent_tools.py`는 제외).
 - 에이전트 두 버전은 대부분 질문에서 검색 1번 + 답 1번(호출 2회)이었고, 여러 글을 이어야 하는 9번(튀르키예 이동 순서)에서만 검색을 더 해 호출 3회가 됐다. v0는 그 질문에 일부 구간만 답했다.
+
+## 재개
+
+`BE/experiments/week2/kill_resume.py`로 2026-10-31에 실행한 결과. 진짜 그래프, 개발 DB, `claude-haiku-5-5`, durability=async, 같은 질문("튀르키예를 어떤 순서로 이동했어?"), 조건마다 1번. `log_question`은 DB에 쓴 뒤 30초 멈추게 하고 1초 뒤 죽였다. 멱등 끔은 재실행마다 다른 키로 쓰게 했다.
+
+재현:
+
+```
+uv run python experiments/week2/kill_resume.py --node retrieve --after 0.05
+uv run python experiments/week2/kill_resume.py --node grade --after 0.3
+uv run python experiments/week2/kill_resume.py --node log_question --after 1 --pause 30
+uv run python experiments/week2/kill_resume.py --node log_question --after 1 --pause 30 --no-idempotent
+```
+
+| 죽인 노드 | 멱등 | 죽은 뒤 `next` | 재개 때 처음 실행된 노드 | 끝난 노드 | 최종 llm_calls | question_logs 행 수 |
+| --- | --- | --- | --- | --- | --- | --- |
+| retrieve | 켬 | `__start__` | begin_turn | insufficient | 5 | 1 |
+| retrieve | 끔 | `__start__` | begin_turn | answer | 4 | 1 |
+| grade | 켬 | `grade` | grade | answer | 4 | 1 |
+| grade | 끔 | `grade` | grade | answer | 4 | 1 |
+| log_question | 켬 | `log_question` | log_question | answer | 4 | 1 |
+| log_question | 끔 | `log_question` | log_question | insufficient | 5 | 2 |
+
+retrieve, 멱등 켬:
+
+```
+kill: retrieve 시작 0.05초 뒤, durability=async
+죽은 뒤 get_state().next: ('__start__',)
+
+죽기 전                       재개 뒤
+begin_turn 완료              begin_turn 완료
+retrieve 시작만 (kill)        retrieve 완료
+                           grade 완료
+                           rewrite_query 완료
+                           retrieve 완료
+                           grade 완료
+                           rewrite_query 완료
+                           retrieve 완료
+                           grade 완료
+                           insufficient 완료
+                           log_question 완료
+
+재개 종료 코드: 0
+최종 llm_calls: 5
+question_logs 행 수: 1 [('insufficient', 2, 5)]
+```
+
+grade, 멱등 켬:
+
+```
+kill: grade 시작 0.3초 뒤, durability=async
+죽은 뒤 get_state().next: ('grade',)
+
+죽기 전                    재개 뒤
+begin_turn 완료           grade 완료
+retrieve 완료             rewrite_query 완료
+grade 시작만 (kill)        retrieve 완료
+                        grade 완료
+                        answer 완료
+                        log_question 완료
+
+재개 종료 코드: 0
+최종 llm_calls: 4
+question_logs 행 수: 1 [('answered', 1, 4)]
+```
+
+log_question, 멱등 켬:
+
+```
+kill: log_question 시작 1.0초 뒤, durability=async
+죽은 뒤 get_state().next: ('log_question',)
+
+죽기 전                           재개 뒤
+begin_turn 완료                  log_question 완료
+retrieve 완료
+grade 완료
+rewrite_query 완료
+retrieve 완료
+grade 완료
+answer 완료
+log_question 시작만 (kill)
+
+재개 종료 코드: 0
+최종 llm_calls: 4
+question_logs 행 수: 1 [('answered', 1, 4)]
+```
+
+log_question, 멱등 끔:
+
+```
+kill: log_question 시작 1.0초 뒤, durability=async
+죽은 뒤 get_state().next: ('log_question',)
+
+죽기 전                           재개 뒤
+begin_turn 완료                  log_question 완료
+retrieve 완료
+grade 완료
+rewrite_query 완료
+retrieve 완료
+grade 완료
+rewrite_query 완료
+retrieve 완료
+grade 완료
+insufficient 완료
+log_question 시작만 (kill)
+
+재개 종료 코드: 0
+최종 llm_calls: 5
+question_logs 행 수: 2 [('insufficient', 2, 5), ('insufficient', 2, 5)]
+```
 
 ## 검색 실행 계획 (EXPLAIN ANALYZE)
 
