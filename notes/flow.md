@@ -62,7 +62,7 @@
 
 ## 5. 재개: 무엇이 다시 실행되고, 왜 멱등이 필요한가
 
-> AI가 2026-10-31 kill 실험 결과로 정리한 초안. 내 말로 다시 쓰면서 틀린 곳을 고친다.
+> 5~7절은 사용자 요청으로 AI가 2026-10-31 실제 실행 결과를 기준으로 썼다. 직접 쓴 설명이 아니다.
 
 - 입력: 같은 `thread_id`로 `ainvoke(None, config)`. 입력이 None이면 새 질문이 아니라 이어 가기다.
 - 거치는 순서:
@@ -97,3 +97,43 @@
   - 멱등은 "다시 안 돈다"가 아니라 "다시 돌아도 결과가 같다"이다. 노드는 실제로 다시 돈다.
   - LLM 호출은 멱등이 아니다. 죽은 `grade` 호출은 끝나지 않아 `llm_calls`에 없지만 비용은 청구될 수 있다. 다시 부르면 판정이 달라질 수도 있다(같은 질문이 `retrieve` kill에서 한 번은 insufficient, 한 번은 answer로 끝났다).
   - `log_question` 멈춤은 실험 스크립트가 일부러 만든 30초다. 실제로는 아주 짧은 구간이라 kill로 맞히기 어렵다.
+
+## 6. Agentic RAG: 질문 하나가 노드를 지나는 순서
+- 입력: `{"question": 질문}`과 `thread_id`. 같은 `thread_id`면 대화가 이어진다.
+- 거치는 순서(`graph/agentic.py`):
+  1. `begin_turn`: `turn`을 1 올리고 지난 턴의 값을 비운다. `chunks`는 reducer가 합치므로 `Overwrite([])`로 비운다.
+  2. 대화 기록이 있으면 `rewrite_query`가 "거기 요금은?"을 독립 검색어로 바꾼다. 첫 턴은 질문 그대로 `retrieve`로 간다.
+  3. `retrieve`: `search`로 청크 5개를 찾아 `chunks`에 합친다.
+  4. `grade`: 구조화 출력으로 `{sufficient, missing}`을 판정한다.
+  5. 충분하면 `answer`, 부족하고 재검색이 2번 미만이면 `rewrite_query` 후 다시 `retrieve`, 2번을 다 썼으면 `insufficient`.
+  6. `answer`는 `{answer, source_post_ids}`를 구조화 출력으로 받고, 코드가 이번 턴에 검색된 글 id만 남긴다.
+  7. `log_question`: `question_logs`에 upsert하고 `history`에 질문과 답을 붙인다.
+- 바뀌는 것(State·DB) 실측:
+
+  | 턴 | 경로 | 검색어 | LLM | 근거 글 id |
+  | --- | --- | --- | --- | --- |
+  | 1 "트롬쇠 오로라 투어 첫날에 오로라를 못 본 이유가 뭐야?" | begin_turn → retrieve → grade → answer → log_question | 질문 그대로 | 2 | [29] |
+  | 2 "그럼 둘째 날은 어땠어?" | begin_turn → rewrite_query → retrieve → grade → answer → log_question | `트롬쇠 오로라 둘째 날 검색어` | 3 | [29] |
+
+  같은 thread에 체크포인트 15개, `question_logs`는 턴마다 1행(2행)이었다.
+- 재검색 예(튀르키예 질문): retrieve → grade → rewrite_query → retrieve → grade → answer, LLM 4번, 근거 글 [14, 32].
+- 헷갈리기 쉬운 점:
+  - `attempts`는 재검색 횟수다. 후속 턴의 첫 `rewrite_query`는 세지 않는다.
+  - `llm_calls`는 턴마다 0부터 다시 센다. `history`만 턴을 넘어 남고, 프롬프트에는 최근 3턴만 넣는다.
+  - 튀르키예 질문은 재검색이 돌아도 5개 도시를 다 찾지 못한다. 3주차 평가로 넘겼다.
+
+## 7. 실패 경로: 재시도, error_handler, durability
+- 일시적 장애(`is_transient`)는 노드 안에서 최대 3번 시도한다. 타임아웃은 `retrieve` 30초, LLM 노드 60초다. `NodeTimeoutError`는 내장 `TimeoutError`의 하위 클래스가 아니라서 따로 넣었다.
+- `retrieve`가 재시도를 다 쓰면 `on_retrieve_failure`가 불린다.
+  - 일시적 장애: `verdict.missing`에 검색 오류를 적고 `Command(goto="insufficient")` → `log_question`. `status`는 insufficient다.
+  - 코드 버그(`ValueError` 등): 숨기지 않고 그대로 올린다. 로그는 남지 않는다.
+- LLM 노드에는 `error_handler`가 없다. 재시도 뒤 실패로 끝나고, 체크포인트가 남아 재개할 수 있다.
+- durability:
+
+  | 모드 | 저장 시점 | 실측 |
+  | --- | --- | --- |
+  | `sync` | 다음 단계 전에 저장 완료 | `retrieve`에서 kill: `next=('retrieve',)` (대역 그래프) |
+  | `async`(기본) | 백그라운드 저장, 다음 단계와 동시 진행 | 같은 kill에서 같은 결과. 시작 0.05초 뒤 kill은 `next=('__start__',)` |
+  | `exit` | 실행이 끝날 때만 저장 | `next=()`, 재개 시 `EmptyInputError` (대역 그래프) |
+
+- 확인 범위: 검색 장애와 타임아웃은 가짜 검색·가짜 모델 테스트로만 확인했다. 실제 DB 장애를 일으켜 보지는 않았다.
