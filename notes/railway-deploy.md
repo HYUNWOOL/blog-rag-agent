@@ -30,7 +30,7 @@
 
 | 이름 | 예시 | 어디서 | 비밀 |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | `${{pgvector.DATABASE_URL}}` | 참조 변수. pgvector 서비스의 비공개 네트워크 주소 | 예(비밀번호 포함) |
+| `DATABASE_URL` | `${{pgvector.DATABASE_URL_PRIVATE}}` | 참조 변수. pgvector 템플릿에서는 `DATABASE_URL_PRIVATE`가 비공개 네트워크 주소(`.railway.internal`)이고 `DATABASE_URL`은 외부 주소다(2026-11-07 확인) | 예(비밀번호 포함) |
 | `ANTHROPIC_API_KEY` | `sk-ant-…` | Claude Console에서 운영용 키를 새로 발급 | 예 |
 | `ACCESS_CODE_PEPPER` | 32자 이상 무작위 | `uv run python -c "import secrets; print(secrets.token_urlsafe(32))"` | 예. 바꾸면 발급한 코드가 모두 무효 |
 | `SESSION_SECRET` | 32자 이상 무작위(PEPPER와 다른 값) | 위와 같은 명령 | 예. 바꾸면 로그인 세션이 모두 끊김 |
@@ -55,12 +55,12 @@ uv --version
 
 ## 운영 적재 (내 PC, 한 번)
 
-pgvector 서비스 Settings → Networking에서 Public Access(TCP Proxy)가 켜져 있어야 `DATABASE_PUBLIC_URL`이 생긴다. 이 값을 그 명령에만 준다. `.env`에는 넣지 않는다. config.py와 alembic은 셸 환경 변수를 .env보다 먼저 쓴다.
+pgvector 서비스 Settings → Networking에서 Public Access(TCP Proxy)가 켜져 있어야 외부 주소가 동작한다. pgvector 템플릿은 외부 주소를 `DATABASE_URL`(기본 Postgres 템플릿의 `DATABASE_PUBLIC_URL`에 해당)에 둔다. 이 값을 그 명령에만 준다. `.env`에는 넣지 않는다. config.py와 alembic은 셸 환경 변수를 .env보다 먼저 쓴다.
 
 PowerShell(BE/에서):
 
 ```powershell
-$env:DATABASE_URL = "<pgvector 서비스 Variables의 DATABASE_PUBLIC_URL>"
+$env:DATABASE_URL = "<pgvector 서비스 Variables의 DATABASE_URL(외부 주소, proxy.rlwy.net)>"
 uv run alembic upgrade head
 uv run python -m blog_rag_agent.db.setup_checkpointer
 uv run python -m blog_rag_agent.ingest.load
@@ -76,7 +76,7 @@ Remove-Item Env:DATABASE_URL
 코드 해시는 `ACCESS_CODE_PEPPER`로 만들므로 Railway의 값과 같은 값으로 발급해야 한다.
 
 ```powershell
-$env:DATABASE_URL = "<DATABASE_PUBLIC_URL>"
+$env:DATABASE_URL = "<pgvector의 DATABASE_URL(외부 주소)>"
 $env:ACCESS_CODE_PEPPER = "<Railway에 넣은 ACCESS_CODE_PEPPER>"
 $env:SESSION_SECRET = "<Railway에 넣은 SESSION_SECRET>"
 uv run python -m blog_rag_agent.api.issue_code "회사 이름" --days 30 --limit 20
