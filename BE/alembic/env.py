@@ -16,8 +16,10 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 database_url = os.environ["DATABASE_URL"]
 # 앱은 psycopg가 바로 받는 postgresql:// 형식을 쓰고,
 # SQLAlchemy는 드라이버를 명시해야 psycopg 3을 고르므로 여기서만 바꾼다.
-if database_url.startswith("postgresql://"):
-    database_url = "postgresql+psycopg://" + database_url.removeprefix("postgresql://")
+# Railway는 postgres:// 형식을 준다. SQLAlchemy 2는 이 이름을 모르므로 둘 다 바꾼다.
+scheme, sep, rest = database_url.partition("://")
+if scheme in ("postgres", "postgresql"):
+    database_url = f"postgresql+psycopg{sep}{rest}"
 # configparser 보간 때문에 비밀번호의 %는 %%로 이스케이프해야 한다.
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 

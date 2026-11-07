@@ -20,8 +20,19 @@ dependencies = [
     "psycopg[binary]>=3,<4",
     "python-dotenv>=1.2.4,<2.0.0",
     "sentence-transformers>=6.2.0,<7.0.0",
+    # sentence-transformers가 끌어오는 torch를 CPU판으로 고정하려고 직접 의존성으로 둔다(아래 sources).
+    "torch>=2.14.1,<2.15",
     "uvicorn>=0.54.0,<0.55.0",
 ]
+
+# 배포처(Railway)에 GPU가 없다. CUDA판 torch는 nvidia 패키지로 이미지만 수 GB 키운다.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

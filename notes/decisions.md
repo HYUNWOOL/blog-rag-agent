@@ -49,6 +49,23 @@
 - 흐름 설명: 2주차는 사용자 요청으로 AI가 notes/flow.md 5~7절을 썼다. "내가 흐름을 설명하지 못하면 넘어가지 않는다" 단계를 이번 주만 생략했다.
 - 멀티홉 답변 품질: 여기서 튜닝을 멈추고 3주차 평가로 넘긴다. 질문 하나에 프롬프트를 더 맞추지 않고, 멀티홉 질문을 늘린 평가셋으로 판정 기준과 재검색(찾은 글 제목 전달 등)을 다시 정한다.
 
+## 3주차 결정 (2026-11-07, 근거: notes/week3-decision-points.md, 모두 추천안)
+- 평가셋: 손으로 24개(단일 글 8, 멀티홉 10, 블로그에 없음 3, 후속 질문 3). AI가 초안, 사용자가 정답 검수. `BE/experiments/week3/evalset.jsonl`.
+- 채점 기준: 필수 사실 맞힌 비율, 근거 이탈 유무, 정답 글 검색 재현율, 없는 질문 거절. 비용·지연·LLM 호출도 기록.
+- 자동 채점: claude-sonnet-5-5 판정자(구조화 출력). 사용자가 답 10개를 손으로 채점해 일치율 확인.
+- 실행 범위: v0 + agentic, 질문당 3번. 결과는 JSONL 파일, 비용 상한을 둔다.
+
+## 3주차 웹 서버 결정 (2026-11-07, 근거: notes/week3-server-decision-points.md, 모두 추천안)
+- 접근 코드 해시: HMAC-SHA256 + ACCESS_CODE_PEPPER(.env). 해시로 조회하고 compare_digest로 다시 비교.
+- usage_log: 시작할 때 started 행으로 예약(access_codes 행 FOR UPDATE로 잠금), 끝나면 토큰·비용·status UPDATE. thread_id·turn 포함, 하루 경계는 Asia/Seoul.
+- 세션: 표준 라이브러리 hmac 서명 쿠키(SESSION_SECRET), 2시간. 요청마다 코드 만료를 DB에서 다시 확인.
+- 토큰 스트리밍: 그래프는 그대로 두고 API에서 answer 노드 토큰만 받아 JSON의 answer 문자열을 조금씩 풀어 보냄.
+
+## 3주차 Railway 배포 결정 (2026-11-07, 모두 추천안)
+- bge-m3 가중치: 빌드 때 내려받아 이미지에 굽는다(시작이 빠르고 헬스체크 시간에 여유).
+- torch: PyTorch CPU 전용 인덱스(uv sources). Railway에 GPU가 없고 CUDA판은 이미지만 키운다.
+- Railway 설정: 대시보드(Root Directory /BE, 헬스체크 /healthz). Config as Code는 새 서비스에 쓸 수 없고 2026-12-01 종료(docs.railway.com/guides/config-as-code).
+
 ## 판단: (질문 한 줄)
 - 상황:
 - 선택지: A / B / C

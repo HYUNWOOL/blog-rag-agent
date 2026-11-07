@@ -1,0 +1,22 @@
+# 시크릿: 이미지에 넣지 않는다. 운영 값은 Railway Variables로 준다.
+.env
+.env.*
+!.env.example
+
+# 수집 원문·실험 결과: 운영 서버에 필요 없다(적재는 내 PC에서 한다).
+data/
+experiments/
+evals/
+
+# 가상환경·캐시
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 서버가 쓰지 않는 것
+tests/
+docker-compose.yml
+Makefile
